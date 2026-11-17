@@ -7,6 +7,30 @@
 > DeepSeek Harness 会话中的 agent 完成。没有人类作者署名，`LICENSE` 里的版权人
 > 是占位名。详见 [README「关于作者与来源」](README.md#关于作者与来源)。
 
+## [0.2.0] - 2026-11-17
+
+### 新增
+
+- **命令行参数**：`--mode` / `--confirm` / `--backend` / `--lang` / `--interval`
+  / `--no-invert` / `--log-level` / `--dry-run` / `--list-langs` / `--selftest`
+  / `--version`。命令行优先级高于文件顶部的配置区，不用改文件就能临时换模式。
+- **`--dry-run`**：只识别并打印结果，不往任何窗口输入，用来确认框选区域能不能认出来。
+- **`--list-langs`**：列出系统装了哪些 OCR 语言包。没有语言包时 Windows OCR 直接报错，
+  这个命令能把"识别不出东西"和"没装语言包"区分开。
+- **`pyproject.toml`**：`pip install .` 之后可以用 `win-ocr-type` 命令启动。
+- 版本号 `__version__`，`--version` 显示。
+
+### 修复
+
+- **`--interval` 原来改了也不生效**：`_type_stream()` 等函数的 `interval` 默认值是
+  定义时绑定的 `TYPE_INTERVAL`，改全局对已定义函数无效。现在默认值改为 `None`，
+  调用时才读。
+
+### 测试
+
+- 新增 `tests/test_cli.py`（8 例）：参数解析、配置覆盖、空参数不改动、负数间隔被拒、
+  间隔在调用时读取。用例总数 30 → 38。
+
 ## [0.1.0] - 2026-11-17
 
 首个公开版本。此前是单机自用脚本（v4 / v5），这里合并整理。

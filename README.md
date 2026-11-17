@@ -17,6 +17,7 @@
 - [安装](#安装)
 - [快速开始](#快速开始)
 - [热键](#热键)
+- [命令行参数](#命令行参数)
 - [两种输入后端](#两种输入后端)
 - [配置：按场景选模式](#配置按场景选模式)
 - [空格与换行：clean 还是 layout](#空格与换行clean-还是-layout)
@@ -94,6 +95,53 @@ python win_ocr_type.py
 | `Ctrl+Enter` | 确认窗里确认输入 |
 
 热键可以在配置区改（`HOTKEY_KEY` 等）。
+
+## 命令行参数
+
+不想改文件也能临时换模式——**命令行优先级高于文件顶部的配置区**：
+
+```bat
+python win_ocr_type.py --mode layout --confirm off
+```
+
+| 参数 | 作用 |
+| --- | --- |
+| `--mode clean` / `layout` | 覆盖 `LAYOUT_MODE` |
+| `--confirm always` / `auto` / `off` | 覆盖 `CONFIRM_MODE` |
+| `--backend sendinput` / `unicode` | 覆盖 `INPUT_MODE` |
+| `--lang TAG` | 覆盖 `OCR_LANG` |
+| `--interval 秒` | 覆盖 `TYPE_INTERVAL` |
+| `--no-invert` | 关闭暗色背景自动反色 |
+| `--log-level LEVEL` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
+| `--dry-run` | 只识别并显示结果，**不往任何窗口输入** |
+| `--list-langs` | 列出系统装了的 OCR 语言包后退出 |
+| `--selftest` | 打开记事本自检输入 |
+| `--version` | 显示版本号 |
+
+几个常用组合：
+
+```bat
+:: 想知道这块区域能不能认出来，但不输入
+python win_ocr_type.py --dry-run
+
+:: 往记事本/编辑器里输，保留空格和换行
+python win_ocr_type.py --mode layout
+
+:: 打得太慢，加快一倍
+python win_ocr_type.py --interval 0.18
+
+:: 看系统有哪些 OCR 语言（没有语言包时识别会直接报错）
+python win_ocr_type.py --list-langs
+```
+
+也可以安装成一个命令（可选）：
+
+```bat
+pip install .
+win-ocr-type --mode layout
+```
+
+安装后配置文件仍在源码里（`win_ocr_type.py` 顶部的配置区），改完重新运行即可。
 
 ## 两种输入后端
 

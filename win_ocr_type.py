@@ -141,6 +141,10 @@ INVERT_THRESHOLD  = 90
 #   "off"    —— 不弹，识别完直接输入（等同 v4 的行为）
 CONFIRM_MODE      = "always"
 
+# 命令行 --dry-run 会把它置 True：只识别并显示结果，不往任何窗口输入。
+# 想确认"这块区域到底能不能认出来"时用它，比按 Esc 更省事。
+DRY_RUN           = False
+
 # 输入过程中守护目标窗口（v5 新增）：前台不是目标窗口时先尝试拉回，
 # 拉不回来就暂停；超过这个秒数仍失败则安全中止。
 FOCUS_GUARD       = True
@@ -167,6 +171,7 @@ APP_RULES = [
 
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+__version__ = "0.2.0"
 log = logging.getLogger("winocr")
 
 
@@ -820,10 +825,14 @@ def _ensure_target_foreground(hwnd, typed):
 
 
 # ==================== 输入后端 ====================
-def _type_stream(text, send_one, hwnd=None, end_cells=None,
-                 interval=TYPE_INTERVAL):
+def _type_stream(text, send_one, hwnd=None, end_cells=None, interval=None):
     """两种后端共用的逐字输入循环；send_one 决定单个字符怎么发。
-    返回实际发送的字符数（含换行/制表符），用于日志与中止提示。"""
+    返回实际发送的字符数（含换行/制表符），用于日志与中止提示。
+
+    interval 默认取 TYPE_INTERVAL，但**在调用时**读，不是定义时绑定——
+    否则命令行 --interval 改了全局也没用。"""
+    if interval is None:
+        interval = TYPE_INTERVAL
     text = text.replace("\r\n", "\n")
     full_end = _punct_buffer_positions(text)
     typed = 0
@@ -873,8 +882,10 @@ def _type_stream(text, send_one, hwnd=None, end_cells=None,
     return typed
 
 
-def type_text_sendinput(text, hwnd=None, end_cells=None, interval=TYPE_INTERVAL):
+def type_text_sendinput(text, hwnd=None, end_cells=None, interval=None):
     """后端 1：逐字模拟按键。仅当文本含英文字符时切换输入法，纯中文不切换"""
+    if interval is None:
+        interval = TYPE_INTERVAL
     release_modifiers()
     orig = None
     has_ascii = any(ch.isascii() and ch not in "\r\n\t" for ch in text)
@@ -894,8 +905,10 @@ def type_text_sendinput(text, hwnd=None, end_cells=None, interval=TYPE_INTERVAL)
             user32.SendMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, int(orig))
 
 
-def type_text_unicode(text, hwnd=None, end_cells=None, interval=TYPE_INTERVAL):
+def type_text_unicode(text, hwnd=None, end_cells=None, interval=None):
     """后端 2：全部字符走 Unicode 注入，不走输入法"""
+    if interval is None:
+        interval = TYPE_INTERVAL
     release_modifiers()
     return _type_stream(text, send_unicode_char, hwnd=hwnd, end_cells=end_cells,
                         interval=interval)
@@ -1069,7 +1082,7 @@ class WinOCRType:
         self.start_listener()
 
         log.info("=" * 60)
-        log.info("Win11 截图 OCR 自动输入工具 v5")
+        log.info("Win11 截图 OCR 自动输入工具 v%s", __version__)
         log.info("sizeof(INPUT) = %d  (应为 40)", _INPUT_SIZE)
         log.info("热键：%s 触发 | %s 切换后端 | %s 重挂监听 | %s 暂停/继续 | %s 退出",
                  HOTKEY_KEY, TOGGLE_KEY, REHOOK_KEY, PAUSE_KEY, QUIT_KEY)
@@ -1193,6 +1206,10 @@ class WinOCRType:
             for line in text.split("\n"):
                 log.info("%s", line if line else " ")
             log.info("-" * 55)
+
+            if DRY_RUN:
+                log.info("--dry-run：只识别，未输入任何内容。")
+                return
 
             mode = resolve_mode(self.last_title)
 
@@ -1682,10 +1699,114 @@ def single_instance(name="win_ocr_type_v5_singleton"):
         return True
 
 
-def main():
+# ==================== 命令行 ====================
+EPILOG = """\
+示例：
+  win_ocr_type.py                              正常运行（默认 clean 版式）
+  win_ocr_type.py --mode layout --dry-run      按保真版式识别一次，只显示不输入
+  win_ocr_type.py --confirm off --interval 0.2 不弹确认窗，加快速度
+  win_ocr_type.py --list-langs                 看系统装了哪些 OCR 语言包
+  win_ocr_type.py --selftest                   开记事本自检输入
+
+配置优先级：命令行参数 > 文件顶部「配置区」。
+"""
+
+
+def build_arg_parser():
+    import argparse
+    p = argparse.ArgumentParser(
+        prog="win_ocr_type.py",
+        description="截屏 OCR 自动输入：按 F9 框选屏幕文字，识别后逐字敲进当前窗口。",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=EPILOG,
+    )
+    p.add_argument("--version", action="version",
+                   version=f"win-ocr-type {__version__}")
+    p.add_argument("--selftest", action="store_true",
+                   help="自检：打开记事本输入一段样例并回读校验")
+    p.add_argument("--list-langs", action="store_true",
+                   help="列出系统可用的 OCR 语言标签后退出")
+    p.add_argument("--dry-run", action="store_true",
+                   help="只识别并显示结果，不往任何窗口输入")
+    p.add_argument("--mode", choices=["clean", "layout"],
+                   help="覆盖 LAYOUT_MODE：clean=紧凑（打字软件）/ layout=保真")
+    p.add_argument("--confirm", choices=["always", "auto", "off"],
+                   help="覆盖 CONFIRM_MODE：always=每次确认 / auto=可疑时 / off=直接输入")
+    p.add_argument("--backend", choices=list(BACKENDS),
+                   help="覆盖 INPUT_MODE：sendinput（默认）/ unicode")
+    p.add_argument("--lang", metavar="TAG",
+                   help="覆盖 OCR_LANG，如 zh-Hans-CN（用 --list-langs 查可用值）")
+    p.add_argument("--interval", type=float, metavar="SEC",
+                   help="覆盖 TYPE_INTERVAL，每字间隔秒数（默认 0.35）")
+    p.add_argument("--no-invert", action="store_true",
+                   help="关闭暗色背景自动反色")
+    p.add_argument("--log-level", metavar="LEVEL",
+                   choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                   help="覆盖 LOG_LEVEL（默认 INFO）")
+    return p
+
+
+def apply_overrides(args):
+    """把命令行参数写回模块级配置。命令行优先于文件顶部的配置区。"""
+    global LAYOUT_MODE, CONFIRM_MODE, INPUT_MODE, OCR_LANG, TYPE_INTERVAL
+    global AUTO_INVERT, LOG_LEVEL, DRY_RUN
+    if args.mode:
+        LAYOUT_MODE = args.mode
+    if args.confirm:
+        CONFIRM_MODE = args.confirm
+    if args.backend:
+        INPUT_MODE = args.backend
+    if args.lang:
+        OCR_LANG = args.lang
+    if args.interval is not None:
+        if args.interval < 0:
+            raise SystemExit("--interval 不能是负数")
+        TYPE_INTERVAL = args.interval
+    if args.no_invert:
+        AUTO_INVERT = False
+    if args.log_level:
+        LOG_LEVEL = args.log_level
+    if args.dry_run:
+        DRY_RUN = True
+
+
+def list_languages():
+    """列出系统装的 OCR 语言包。没有语言包时 Windows OCR 会直接报错，
+    所以这个信息对排障有用。"""
+    try:
+        from winocr import OcrEngine
+        langs = list(OcrEngine.available_recognizer_languages)
+    except Exception as e:
+        print(f"无法枚举 OCR 语言：{e}")
+        print("这通常意味着 Windows 的 OCR 组件不可用。")
+        return 1
+    if not langs:
+        print("系统里没有安装任何 OCR 语言包。")
+        print("去 设置 → 时间和语言 → 语言和区域 → 添加语言 → 勾选「光学字符识别」")
+        return 1
+    print("系统可用的 OCR 语言：")
+    tags = []
+    for lang in langs:
+        tags.append(lang.language_tag)
+        print(f"  {lang.language_tag:<16} {lang.display_name}")
+    print()
+    print('配置区写法：OCR_LANG = "%s"' % tags[0])
+    if len(tags) > 1:
+        print('或者命令行：--lang %s' % tags[0])
+    return 0
+
+
+def main(argv=None):
+    args = build_arg_parser().parse_args(argv)
+    if args.list_langs:
+        return list_languages()
+    apply_overrides(args)
     setup_logging()
+    if args.selftest:
+        return 0 if selftest() else 1
     if not single_instance():
-        log.warning("已经有一个 %s 在运行了，这次不再启动。", os.path.basename(__file__))
+        log.warning("已经有一个 %s 在运行了，这次不再启动。",
+                    os.path.basename(__file__))
         log.warning("（如果确认没在运行，可能是别的目录里也开着同一份脚本）")
         return 2
     WinOCRType().run()
@@ -1693,10 +1814,4 @@ def main():
 
 
 if __name__ == "__main__":
-    if "--selftest" in sys.argv:
-        setup_logging()
-        sys.exit(0 if selftest() else 1)
-    if "-h" in sys.argv or "--help" in sys.argv:
-        print(__doc__)
-        sys.exit(0)
     sys.exit(main())
