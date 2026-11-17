@@ -91,6 +91,40 @@ python bench_ocr.py
 - Some OCR errors are inherent (rare characters split into components, missing
   trailing punctuation) — that is why the confirmation window exists.
 
+## Authors and provenance
+
+**The code in this project was written by AI. There is no human author credit.**
+
+- **v4** (the original single-file script) was drafted by **ChatGPT**: capture
+  screen → OCR → synthesize key events, with workarounds for grid-based typing
+  tutor software (swallowed characters after punctuation, no Enter key, IME
+  switching timing).
+- **v5** (refactor and hardening) was written by an **agent running in a
+  DeepSeek Harness session (DeepSeek model)**: merged the duplicated input
+  loops, fixed the `SendInput` struct member type, added the editable preview,
+  focus guard, multi-monitor, rolling log, single-instance lock, and the
+  "two-column offset duplicate line" deduplication.
+- **v6 / 0.1.0** (layout fidelity and packaging) was also written by that
+  agent: reconstructing spaces / indentation / blank lines from character
+  bounding boxes, the special handling for CJK punctuation, dark-background
+  auto-invert, plus the repo layout, unit tests, CI, benchmark tool and these
+  docs.
+
+The timing and buffering constants were tuned by repeatedly testing against
+real typing software; the *values* were determined empirically, but the
+*code* is AI output.
+
+Consequently:
+
+- The copyright holder in [LICENSE](LICENSE) is the placeholder
+  `win-ocr-type contributors` — it does **not** refer to any specific person.
+  If you fork or redistribute under your own name, replace it.
+- Copyright status of AI-generated content differs between jurisdictions and
+  is still evolving. Verify the rules where you live before using this in a
+  commercial context.
+- Commit author names are placeholders too; use
+  `git commit --amend --reset-author` in your fork to change them.
+
 ## License
 
 MIT.

@@ -3,6 +3,10 @@
 格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号参照 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+> **关于作者**：本项目的代码全部由 AI 产出——v4 由 ChatGPT 起草，v5 起由
+> DeepSeek Harness 会话中的 agent 完成。没有人类作者署名，`LICENSE` 里的版权人
+> 是占位名。详见 [README「关于作者与来源」](README.md#关于作者与来源)。
+
 ## [0.1.0] - 2026-11-17
 
 首个公开版本。此前是单机自用脚本（v4 / v5），这里合并整理。
