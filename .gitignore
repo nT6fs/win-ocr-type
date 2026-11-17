@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 运行产物
+win_ocr_type.log
+win_ocr_type.log.*
+*.log
+
+# 基准样本：截图容易含个人内容，不要提交
+bench_images/*.png
+bench_images/*.jpg
+bench_images/*.jpeg
+
+# 手工验收生成的合成图
+tests/synthetic_layout.png
